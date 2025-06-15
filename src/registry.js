@@ -26,68 +26,56 @@
  *         };
  *     }
  */
-function Registry() {
-    this.utilities = {};
+export class Registry {
+    constructor() {
+        this.utilities = {};
+    }
+
+    /**
+     * Register component `component` as an implementer of interface `iface`.
+     * @param {*} component The component to register.
+     * @param {string} iface The name of the interface.
+     */
+    registerUtility(component, iface) {
+        this.utilities[iface] = component;
+    }
+
+    /**
+     * Get component implementing interface `iface`.
+     * @param {string} iface The name of the interface.
+     * @returns {*} Component matching `iface`.
+     * @throws {LookupError} If no component is found for interface `iface`.
+     */
+    getUtility(iface) {
+        const component = this.queryUtility(iface);
+        if (component === null) {
+            throw new LookupError(iface);
+        }
+        return component;
+    }
+
+    /**
+     * Get component implementing interface `iface`. Returns `null` if no matching component is found.
+     * @param {string} iface The name of the interface.
+     * @returns {*} Component matching `iface`, if found; `null` otherwise.
+     */
+    queryUtility(iface) {
+        const component = this.utilities[iface];
+        if (typeof component === 'undefined' || component === null) {
+            return null;
+        }
+        return component;
+    }
 }
-
-/**
- * function:: Registry.prototype.registerUtility(component, iface)
- *
- * Register component `component` as an implementer of interface `iface`.
- *
- * :param component: The component to register.
- * :param string iface: The name of the interface.
- */
-Registry.prototype.registerUtility = function (component, iface) {
-    this.utilities[iface] = component;
-};
-
-/**
- * function:: Registry.prototype.getUtility(iface)
- *
- * Get component implementing interface `iface`.
- *
- * :param string iface: The name of the interface.
- * :returns: Component matching `iface`.
- * :throws LookupError: If no component is found for interface `iface`.
- */
-Registry.prototype.getUtility = function (iface) {
-    var component = this.queryUtility(iface);
-    if (component === null) {
-        throw new LookupError(iface);
-    }
-    return component;
-};
-
-/**
- * function:: Registry.prototype.queryUtility(iface)
- *
- * Get component implementing interface `iface`. Returns `null` if no matching
- * component is found.
- *
- * :param string iface: The name of the interface.
- * :returns: Component matching `iface`, if found; `null` otherwise.
- */
-Registry.prototype.queryUtility = function (iface) {
-    var component = this.utilities[iface];
-    if (typeof component === 'undefined' || component === null) {
-        return null;
-    }
-    return component;
-};
-
 
 /**
  * class:: LookupError(iface)
  *
  * The error thrown when a registry component lookup fails.
  */
-function LookupError(iface) {
-    this.name = 'LookupError';
-    this.message = 'No utility registered for interface "' + iface + '".';
+class LookupError extends Error {
+    constructor(iface) {
+        super(`No utility registered for interface "${iface}".`);
+        this.name = 'LookupError';
+    }
 }
-LookupError.prototype = Object.create(Error.prototype);
-LookupError.prototype.constructor = LookupError;
-
-exports.LookupError = LookupError;
-exports.Registry = Registry;

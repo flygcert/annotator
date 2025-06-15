@@ -2,58 +2,51 @@
 
 "use strict";
 
+/**
+ * SimpleIdentityPolicy
+ *
+ * A simple identity policy that treats the identity as an opaque identifier.
+ */
+class SimpleIdentityPolicy {
+    /**
+     * The current user identity.
+     * Defaults to `null`, disabling identity-related functionality.
+     */
+    identity = null;
 
-var SimpleIdentityPolicy;
-
+    /**
+     * Returns the current user identity.
+     * @returns {any} The identity value.
+     */
+    who() {
+        return this.identity;
+    }
+}
 
 /**
- * function:: simple()
+ * simple
  *
- * A module that configures and registers an instance of
- * :class:`annotator.identity.SimpleIdentityPolicy`.
+ * Configures and registers an instance of SimpleIdentityPolicy.
+ * @returns {object} Module with configure and beforeAnnotationCreated hooks.
  */
-exports.simple = function simple() {
-    var identity = new SimpleIdentityPolicy();
+export const simple = () => {
+    const identity = new SimpleIdentityPolicy();
 
     return {
-        configure: function (registry) {
+        /**
+         * Registers the identity policy utility.
+         * @param {object} registry - The registry to register with.
+         */
+        configure(registry) {
             registry.registerUtility(identity, 'identityPolicy');
         },
-        beforeAnnotationCreated: function (annotation) {
+
+        /**
+         * Sets the user property on the annotation before creation.
+         * @param {object} annotation - The annotation object.
+         */
+        beforeAnnotationCreated(annotation) {
             annotation.user = identity.who();
         }
     };
-};
-
-
-/**
- * class:: SimpleIdentityPolicy
- *
- * A simple identity policy that considers the identity to be an opaque
- * identifier.
- */
-SimpleIdentityPolicy = function SimpleIdentityPolicy() {
-    /**
-     * data:: SimpleIdentityPolicy.identity
-     *
-     * Default identity. Defaults to `null`, which disables identity-related
-     * functionality.
-     *
-     * This is not part of the identity policy public interface, but provides a
-     * simple way for you to set a fixed current user::
-     *
-     *     app.ident.identity = 'bob';
-     */
-    this.identity = null;
-};
-exports.SimpleIdentityPolicy = SimpleIdentityPolicy;
-
-
-/**
- * function:: SimpleIdentityPolicy.prototype.who()
- *
- * Returns the current user identity.
- */
-SimpleIdentityPolicy.prototype.who = function () {
-    return this.identity;
 };

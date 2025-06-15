@@ -7,20 +7,23 @@ $(error The 'browserify' command was not found. Please ensure you have run 'npm 
 endif
 
 SRC := $(shell find src -type f -name '*.js')
+OUTPUT_DIR := /home/flowman/projects/platform/media/com_lms/js
 
 all: annotator
 annotator: pkg/annotator.min.js
 
 pkg/%.min.js: pkg/%.js
 	@echo Writing $@
-	@$(UGLIFYJS) --preamble "$$(tools/preamble)" $< >$@
+	@$(UGLIFYJS) $< >$@
+	@cp $@ $(OUTPUT_DIR)/
 
 pkg/annotator.js: browser.js
 	@echo Writing $@
 	@mkdir -p pkg/ .deps/
-	@$(BROWSERIFY) -s annotator $< >$@
+	@$(BROWSERIFY) -s annotator $< -p esmify > $@
 	@$(BROWSERIFY) --list $< | \
 	sed 's#^#$@: #' >.deps/annotator.d
+	@cp $@ $(OUTPUT_DIR)/
 
 clean:
 	rm -rf .deps pkg

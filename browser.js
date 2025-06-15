@@ -1,10 +1,5 @@
 "use strict";
 
-// Inject Annotator CSS
-var insertCss = require('insert-css');
-var css = require('./css/annotator.css');
-insertCss(css);
-
 var app = require('./src/app');
 var util = require('./src/util');
 
@@ -14,7 +9,6 @@ exports.App = app.App;
 // Access to libraries (for browser installations)
 exports.authz = require('./src/authz');
 exports.identity = require('./src/identity');
-exports.notification = require('./src/notification');
 exports.storage = require('./src/storage');
 exports.ui = require('./src/ui');
 exports.util = util;

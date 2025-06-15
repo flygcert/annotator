@@ -1,46 +1,78 @@
 "use strict";
 
-var Widget = require('./widget').Widget,
-    util = require('../util');
+import { Widget } from './widget';
+import * as util from '../util.js';
 
-var $ = util.$;
 var _t = util.gettext;
-
-var NS = 'annotator-adder';
-
 
 // Adder shows and hides an annotation adder button that can be clicked on to
 // create an annotation.
-var Adder = Widget.extend({
+export class Adder extends Widget {
+    static template = [
+        '<div class="annotator annotator--adder annotator--hide">',
+        '<div class="adder">',
+        '<div class="adder__body">',
+        '<button class="adder__button" type="button">',
+        '<span class="fa-solid fa-quote-right adder__icon" aria-hidden="true"></span>',
+        '<span class="adder__label">' + _t('Annotate') + '</span>',
+        '</button>',
+        '</div>',
+        '</div>',
+        '</div>',
+    ].join('\n');
 
-    constructor: function (options) {
-        Widget.call(this, options);
+    // Configuration options
+    static options = {
+        // Callback, called when the user clicks the adder when an
+        // annotation is loaded.
+        onCreate: null
+    };
 
-        this.ignoreMouseup = false;
-        this.annotation = null;
+    ignoreMouseup = false;
+    annotation = null;
+    direction = null;
+    mouseDownOffset = null;
+
+    constructor(options) {
+        super(options);
 
         this.onCreate = this.options.onCreate;
 
-        var self = this;
-        this.element
-            .on("click." + NS, 'button', function (e) {
-                self._onClick(e);
-            })
-            .on("mousedown." + NS, 'button', function (e) {
-                self._onMousedown(e);
-            });
+        const button = this.element.querySelector('.adder__button');
+        button.addEventListener('click', this._onClick.bind(this));
+        button.addEventListener('mousedown', this._onMousedown.bind(this));
 
-        this.document = this.element[0].ownerDocument;
-        $(this.document.body).on("mouseup." + NS, function (e) {
-            self._onMouseup(e);
-        });
-    },
+        this.document = this.element.ownerDocument;
+        this.document.body.addEventListener('mouseup', this._onMouseup.bind(this));
+        this.document.body.addEventListener('mousedown', this.textSelectionDirection.bind(this));
+        this.document.body.addEventListener('mouseup', this.textSelectionDirection.bind(this));    
+    }
 
-    destroy: function () {
-        this.element.off("." + NS);
-        $(this.document.body).off("." + NS);
+    textSelectionDirection(event) {
+        if( event.type == 'mousedown' ) {
+            this.mouseDownOffset = event.clientY;
+        }
+        else if( event.type == 'mouseup' ){
+            this.direction = event.clientY < this.mouseDownOffset ? 'down' : 'up';
+        }
+    }
+
+    destroy() {
+        // Remove all event listeners added in the constructor
+        const button = this.element.querySelector('.adder__button');
+        if (button) {
+            button.removeEventListener('click', this._onClick);
+            button.removeEventListener('mousedown', this._onMousedown);
+        }
+
+        if (this.document && this.document.body) {
+            this.document.body.removeEventListener('mouseup', this._onMouseup);
+            this.document.body.removeEventListener('mousedown', this.textSelectionDirection);
+            this.document.body.removeEventListener('mouseup', this.textSelectionDirection);
+        }
+
         Widget.prototype.destroy.call(this);
-    },
+    }
 
     // Public: Load an annotation and show the adder.
     //
@@ -53,10 +85,10 @@ var Adder = Widget.extend({
     // intermediary step between making a selection and creating an annotation.
     //
     // Returns nothing.
-    load: function (annotation, position) {
+    load(annotation, position) {
         this.annotation = annotation;
         this.show(position);
-    },
+    }
 
     // Public: Show the adder.
     //
@@ -70,22 +102,28 @@ var Adder = Widget.extend({
     //   adder.show({top: '100px', left: '80px'})
     //
     // Returns nothing.
-    show: function (position) {
+    show(position) {
         if (typeof position !== 'undefined' && position !== null) {
-            this.element.css({
-                top: position.top,
-                left: position.left
-            });
+            this.element.style.top = position.top;
+            this.element.style.left = position.left;            
+
+            const body = this.element.querySelector('.adder__body');
+
+            if (body) {
+                body.classList.remove('arrow-up', 'arrow-down');
+                body.classList.add('arrow-' + this.direction);
+            }
         }
+
         Widget.prototype.show.call(this);
-    },
+    }
 
     // Event callback: called when the mouse button is depressed on the adder.
     //
     // event - A mousedown Event object
     //
     // Returns nothing.
-    _onMousedown: function (event) {
+    _onMousedown(event) {
         // Do nothing for right-clicks, middle-clicks, etc.
         if (event.which > 1) {
             return;
@@ -95,14 +133,14 @@ var Adder = Widget.extend({
         // Prevent the selection code from firing when the mouse button is
         // released
         this.ignoreMouseup = true;
-    },
+    }
 
     // Event callback: called when the mouse button is released
     //
     // event - A mouseup Event object
     //
     // Returns nothing.
-    _onMouseup: function (event) {
+    _onMouseup(event) {
         // Do nothing for right-clicks, middle-clicks, etc.
         if (event.which > 1) {
             return;
@@ -113,7 +151,7 @@ var Adder = Widget.extend({
         if (this.ignoreMouseup) {
             event.stopImmediatePropagation();
         }
-    },
+    }
 
     // Event callback: called when the adder is clicked. The click event is used
     // as well as the mousedown so that we get the :active state on the adder
@@ -122,7 +160,7 @@ var Adder = Widget.extend({
     // event - A mousedown Event object
     //
     // Returns nothing.
-    _onClick: function (event) {
+    _onClick(event) {
         // Do nothing for right-clicks, middle-clicks, etc.
         if (event.which > 1) {
             return;
@@ -139,20 +177,4 @@ var Adder = Widget.extend({
             this.onCreate(this.annotation, event);
         }
     }
-});
-
-Adder.template = [
-    '<div class="annotator-adder annotator-hide">',
-    '  <button type="button">' + _t('Annotate') + '</button>',
-    '</div>'
-].join('\n');
-
-// Configuration options
-Adder.options = {
-    // Callback, called when the user clicks the adder when an
-    // annotation is loaded.
-    onCreate: null
-};
-
-
-exports.Adder = Adder;
+}

@@ -2,162 +2,88 @@
 
 "use strict";
 
-var extend = require('backbone-extend-standalone');
-var Promise = require('es6-promise').Promise;
-
-var authz = require('./authz');
-var identity = require('./identity');
-var notification = require('./notification');
-var registry = require('./registry');
-var storage = require('./storage');
+import { acl } from './authz';
+import { simple } from './identity';
+import { Registry } from './registry';
+import { noop, StorageAdapter } from './storage';
 
 /**
- * class:: App()
+ * App
  *
- * App is the coordination point for all annotation functionality. App instances
- * manage the configuration of a particular annotation application, and are the
- * starting point for most deployments of Annotator.
+ * The coordination point for all annotation functionality.
+ * Manages configuration and acts as the entry point for deployments.
  */
-function App() {
-    this.modules = [];
-    this.registry = new registry.Registry();
+export class App {
+    constructor() {
+        this.modules = [];
+        this.registry = new Registry();
+        this._started = false;
 
-    this._started = false;
+        // Set up default components.
+        this.include(acl);
+        this.include(simple);
+        this.include(noop);
+    }
 
-    // Register a bunch of default utilities
-    this.registry.registerUtility(notification.defaultNotifier,
-                                  'notifier');
+    /**
+     * Include an extension module.
+     * If an options object is supplied, it is passed to the module.
+     * If the module has a configure function, it is called with the registry.
+     * @param {Function} module - The module to include.
+     * @param {Object} [options] - Optional options for the module.
+     * @returns {App} The App instance.
+     */
+    include(module, options) {
+        const mod = module(options);
+        if (typeof mod.configure === 'function') {
+            mod.configure(this.registry);
+        }
+        this.modules.push(mod);
+        return this;
+    }
 
-    // And set up default components.
-    this.include(authz.acl);
-    this.include(identity.simple);
-    this.include(storage.noop);
+    /**
+     * Start the app, binding components and running 'start' hooks.
+     * @returns {Promise} Resolves when all module 'start' hooks complete.
+     */
+    start() {
+        if (this._started) return;
+        this._started = true;
+
+        const reg = this.registry;
+
+        this.authz = reg.getUtility('authorizationPolicy');
+        this.ident = reg.getUtility('identityPolicy');
+
+        this.annotations = new StorageAdapter(
+            reg.getUtility('storage'),
+            (...args) => this.runHook(...args)
+        );
+
+        return this.runHook('start', [this]);
+    }
+
+    /**
+     * Destroy the app, running the 'destroy' module hook.
+     * @returns {Promise} Resolves when destroyed.
+     */
+    destroy() {
+        return this.runHook('destroy');
+    }
+
+    /**
+     * Run the named module hook and return a promise of all results.
+     * @param {string} name - The hook name.
+     * @param {Array} [args] - Arguments to pass to each hook.
+     * @returns {Promise} Resolves when all hooks are complete.
+     */
+    runHook(name, args = []) {
+        const results = [];
+        for (const mod of this.modules) {
+            if (typeof mod[name] === 'function') {
+                results.push(mod[name](...args));
+            }
+        }
+        return Promise.all(results);
+    }
 }
-
-
-/**
- * function:: App.prototype.include(module[, options])
- *
- * Include an extension module. If an `options` object is supplied, it will be
- * passed to the module at initialisation.
- *
- * If the returned module instance has a `configure` function, this will be
- * called with the application registry as a parameter.
- *
- * :param Object module:
- * :param Object options:
- * :returns: Itself.
- * :rtype: App
- */
-App.prototype.include = function (module, options) {
-    var mod = module(options);
-    if (typeof mod.configure === 'function') {
-        mod.configure(this.registry);
-    }
-    this.modules.push(mod);
-    return this;
-};
-
-
-/**
- * function:: App.prototype.start()
- *
- * Tell the app that configuration is complete. This binds the various
- * components passed to the registry to their canonical names so they can be
- * used by the rest of the application.
- *
- * Runs the 'start' module hook.
- *
- * :returns: A promise, resolved when all module 'start' hooks have completed.
- * :rtype: Promise
- */
-App.prototype.start = function () {
-    if (this._started) {
-        return;
-    }
-    this._started = true;
-
-    var self = this;
-    var reg = this.registry;
-
-    this.authz = reg.getUtility('authorizationPolicy');
-    this.ident = reg.getUtility('identityPolicy');
-    this.notify = reg.getUtility('notifier');
-
-    this.annotations = new storage.StorageAdapter(
-        reg.getUtility('storage'),
-        function () {
-            return self.runHook.apply(self, arguments);
-        }
-    );
-
-    return this.runHook('start', [this]);
-};
-
-
-/**
- * function:: App.prototype.destroy()
- *
- * Destroy the App. Unbinds all event handlers and runs the 'destroy' module
- * hook.
- *
- * :returns: A promise, resolved when destroyed.
- * :rtype: Promise
- */
-App.prototype.destroy = function () {
-    return this.runHook('destroy');
-};
-
-
-/**
- * function:: App.prototype.runHook(name[, args])
- *
- * Run the named module hook and return a promise of the results of all the hook
- * functions. You won't usually need to run this yourself unless you are
- * extending the base functionality of App.
- *
- * Optionally accepts an array of argument (`args`) to pass to each hook
- * function.
- *
- * :returns: A promise, resolved when all hooks are complete.
- * :rtype: Promise
- */
-App.prototype.runHook = function (name, args) {
-    var results = [];
-    for (var i = 0, len = this.modules.length; i < len; i++) {
-        var mod = this.modules[i];
-        if (typeof mod[name] === 'function') {
-            results.push(mod[name].apply(mod, args));
-        }
-    }
-    return Promise.all(results);
-};
-
-
-/**
- * function:: App.extend(object)
- *
- * Create a new object that inherits from the App class.
- *
- * For example, here we create a ``CustomApp`` that will include the
- * hypothetical ``mymodules.foo.bar`` module depending on the options object
- * passed into the constructor::
- *
- *     var CustomApp = annotator.App.extend({
- *         constructor: function (options) {
- *             App.apply(this);
- *             if (options.foo === 'bar') {
- *                 this.include(mymodules.foo.bar);
- *             }
- *         }
- *     });
- *
- *     var app = new CustomApp({foo: 'bar'});
- *
- * :returns: The subclass constructor.
- * :rtype: Function
- */
-App.extend = extend;
-
-
-exports.App = App;

@@ -1,184 +1,187 @@
 "use strict";
 
-var extend = require('backbone-extend-standalone');
+import * as util from '../util.js';
 
-var util = require('../util');
-var $ = util.$;
+const createElementFromHTML = util.createElementFromHTML;
 
+/**
+ * Base class for Editor and Viewer widgets.
+ * Provides shared methods for widget lifecycle, visibility, and orientation.
+ */
+export class Widget {
+    /**
+     * CSS classes used to alter widget state.
+     */
+    static classes = {
+        hide: 'annotator--hide',
+        invert: {
+            x: 'annotator-invert-x',
+            y: 'annotator-invert-y'
+        }
+    };
 
-// Public: Base class for the Editor and Viewer elements. Contains methods that
-// are shared between the two.
-function Widget(options) {
-    this.element = $(this.constructor.template);
-    this.classes = $.extend({}, Widget.classes, this.constructor.classes);
-    this.options = $.extend(
-      {},
-      Widget.options,
-      this.constructor.options,
-      options
-    );
-    this.extensionsInstalled = false;
-}
+    /**
+     * Default HTML template for the widget.
+     */
+    static template = "<div></div>";
 
-// Public: Destroy the Widget, unbinding all events and removing the element.
-//
-// Returns nothing.
-Widget.prototype.destroy = function () {
-    this.element.remove();
-};
+    /**
+     * Default options for the widget.
+     * @property {string|Element} appendTo - Selector or element to append the widget to.
+     */
+    static options = {
+        appendTo: 'body'
+    };
 
-// Executes all given widget-extensions
-Widget.prototype.installExtensions = function () {
-    if (this.options.extensions) {
-        for (var i = 0, len = this.options.extensions.length; i < len; i++) {
-            var extension = this.options.extensions[i];
-            extension(this);
+    /**
+     * Create a new Widget instance.
+     * @param {Object} options - Widget options.
+     */
+    constructor(options = {}) {
+        // Create the widget's root element from the template
+        this.element = createElementFromHTML(this.constructor.template.trim());
+
+        // Merge class and option defaults with subclass and instance options
+        this.classes = { ...Widget.classes, ...this.constructor.classes };
+        this.options = { ...Widget.options, ...this.constructor.options, ...options };
+        this.extensionsInstalled = false;
+    }
+
+    /**
+     * Destroy the widget, unbinding all events and removing the element.
+     */
+    destroy() {
+        this.element.remove();
+    }
+
+    /**
+     * Execute all widget extensions, if any are provided in options.
+     */
+    installExtensions() {
+        if (this.options.extensions) {
+            this.options.extensions.forEach(extension => extension(this));
         }
     }
-};
 
-Widget.prototype._maybeInstallExtensions = function () {
-    if (!this.extensionsInstalled) {
-        this.extensionsInstalled = true;
-        this.installExtensions();
+    /**
+     * Ensure extensions are installed only once.
+     * @private
+     */
+    _maybeInstallExtensions() {
+        if (!this.extensionsInstalled) {
+            this.extensionsInstalled = true;
+            this.installExtensions();
+        }
     }
-};
 
-// Public: Attach the widget to a css selector or element
-// Plus do any post-construction install
-Widget.prototype.attach = function () {
-    this.element.appendTo(this.options.appendTo);
-    this._maybeInstallExtensions();
-};
+    /**
+     * Attach the widget to the DOM and install extensions.
+     */
+    attach() {
+        document.querySelector(this.options.appendTo).append(this.element);
+        this._maybeInstallExtensions();
+    }
 
-// Public: Show the widget.
-//
-// Returns nothing.
-Widget.prototype.show = function () {
-    this.element.removeClass(this.classes.hide);
+    /**
+     * Show the widget and check orientation.
+     */
+    show() {
+        this.element.classList.remove(this.classes.hide);
+        this.checkOrientation();
+    }
 
-    // invert if necessary
-    this.checkOrientation();
-};
+    /**
+     * Hide the widget.
+     */
+    hide() {
+        this.element.classList.add(this.classes.hide);
+    }
 
-// Public: Hide the widget.
-//
-// Returns nothing.
-Widget.prototype.hide = function () {
-    $(this.element).addClass(this.classes.hide);
-};
+    /**
+     * Check if the widget is currently visible.
+     * @returns {boolean}
+     */
+    isShown() {
+        return !this.element.classList.contains(this.classes.hide);
+    }
 
-// Public: Returns true if the widget is currently displayed, false otherwise.
-//
-// Examples
-//
-//   widget.show()
-//   widget.isShown() # => true
-//
-//   widget.hide()
-//   widget.isShown() # => false
-//
-// Returns true if the widget is visible.
-Widget.prototype.isShown = function () {
-    return !$(this.element).hasClass(this.classes.hide);
-};
+    /**
+     * Check and adjust widget orientation based on viewport.
+     * Inverts X or Y if widget would overflow.
+     * @returns {Widget} this
+     */
+    checkOrientation() {
+        this.resetOrientation();
 
-Widget.prototype.checkOrientation = function () {
-    this.resetOrientation();
+        const widget = this.element.firstElementChild;
+        if (!widget) return this;
 
-    var $win = $(global),
-        $widget = this.element.children(":first"),
-        offset = $widget.offset(),
-        viewport = {
-            top: $win.scrollTop(),
-            right: $win.width() + $win.scrollLeft()
-        },
-        current = {
-            top: offset.top,
-            right: offset.left + $widget.width()
+        const rect = widget.getBoundingClientRect();
+
+        const scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        const scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+
+        const viewport = {
+            top: scrollTop,
+            right: window.innerWidth + scrollLeft
         };
 
-    if ((current.top - viewport.top) < 0) {
-        this.invertY();
+        const current = {
+            top: rect.top + scrollTop,
+            right: rect.left + scrollLeft + rect.width
+        };
+
+        if ((current.top - viewport.top) < 0) {
+            this.invertY();
+        }
+
+        if ((current.right - viewport.right) > 0) {
+            this.invertX();
+        }
+
+        return this;
     }
 
-    if ((current.right - viewport.right) > 0) {
-        this.invertX();
+    /**
+     * Reset widget orientation on both axes.
+     * @returns {Widget} this
+     */
+    resetOrientation() {
+        this.element.classList.remove(this.classes.invert.x, this.classes.invert.y);
+        return this;
     }
 
-    return this;
-};
-
-// Public: Resets orientation of widget on the X & Y axis.
-//
-// Examples
-//
-//   widget.resetOrientation() # Widget is original way up.
-//
-// Returns itself for chaining.
-Widget.prototype.resetOrientation = function () {
-    this.element
-        .removeClass(this.classes.invert.x)
-        .removeClass(this.classes.invert.y);
-    return this;
-};
-
-// Public: Inverts the widget on the X axis.
-//
-// Examples
-//
-//   widget.invertX() # Widget is now right aligned.
-//
-// Returns itself for chaining.
-Widget.prototype.invertX = function () {
-    this.element.addClass(this.classes.invert.x);
-    return this;
-};
-
-// Public: Inverts the widget on the Y axis.
-//
-// Examples
-//
-//   widget.invertY() # Widget is now upside down.
-//
-// Returns itself for chaining.
-Widget.prototype.invertY = function () {
-    this.element.addClass(this.classes.invert.y);
-    return this;
-};
-
-// Public: Find out whether or not the widget is currently upside down
-//
-// Returns a boolean: true if the widget is upside down
-Widget.prototype.isInvertedY = function () {
-    return this.element.hasClass(this.classes.invert.y);
-};
-
-// Public: Find out whether or not the widget is currently right aligned
-//
-// Returns a boolean: true if the widget is right aligned
-Widget.prototype.isInvertedX = function () {
-    return this.element.hasClass(this.classes.invert.x);
-};
-
-// Classes used to alter the widgets state.
-Widget.classes = {
-    hide: 'annotator-hide',
-    invert: {
-        x: 'annotator-invert-x',
-        y: 'annotator-invert-y'
+    /**
+     * Invert widget on the X axis (right align).
+     * @returns {Widget} this
+     */
+    invertX() {
+        this.element.classList.add(this.classes.invert.x);
+        return this;
     }
-};
 
-Widget.template = "<div></div>";
+    /**
+     * Invert widget on the Y axis (upside down).
+     * @returns {Widget} this
+     */
+    invertY() {
+        this.element.classList.add(this.classes.invert.y);
+        return this;
+    }
 
-// Default options for the widget.
-Widget.options = {
-    // A CSS selector or Element to append the Widget to.
-    appendTo: 'body'
-};
+    /**
+     * Check if widget is currently inverted on the Y axis.
+     * @returns {boolean}
+     */
+    isInvertedY() {
+        return this.element.classList.contains(this.classes.invert.y);
+    }
 
-Widget.extend = extend;
-
-
-exports.Widget = Widget;
+    /**
+     * Check if widget is currently inverted on the X axis.
+     * @returns {boolean}
+     */
+    isInvertedX() {
+        return this.element.classList.contains(this.classes.invert.x);
+    }
+}

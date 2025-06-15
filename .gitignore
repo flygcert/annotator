@@ -1,5 +1,4 @@
-.DS_Store
 .deps/
-doc/_build/
+.vscode/
 node_modules/
 pkg/
