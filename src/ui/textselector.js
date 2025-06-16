@@ -83,7 +83,7 @@ class TextSelector {
      * @returns {Range[]} Array of Range objects inside the element.
      */
     getRangesInsideElement(selector) {
-        const selection = global.getSelection();
+        const selection = window.getSelection();
         if (!selection || selection.rangeCount === 0) return [];
 
         const container = typeof selector === 'string' ? document.querySelector(selector) : selector;
@@ -190,7 +190,7 @@ class TextSelector {
             }
         }
 
-        const selection = global.getSelection();
+        const selection = window.getSelection();
         // Most browsers do not support multi-select, so just append selectors for the first range
         selectedRanges.push(this.getSelectors(selection.getRangeAt(0)));
 

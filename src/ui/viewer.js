@@ -1,4 +1,3 @@
-/* global window */
 "use strict";
 
 var Widget = require('./widget').Widget,

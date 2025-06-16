@@ -6,10 +6,9 @@
     "type": "git",
     "url": "https://github.com/openannotation/annotator.git"
   },
-  "dependencies": {
-  },
   "devDependencies": {
     "browserify": "^17.0.0",
+    "dom-anchor-text-position": "^5.0.0",
     "esmify": "^2.0.0",
     "gulp": "^4.0.2",
     "gulp-if": "^3.0.0",
@@ -22,6 +21,11 @@
     "vinyl-buffer": "^1.0.1",
     "vinyl-source-stream": "^2.0.0",
     "watchify": "^4.0.0",
-    "dom-anchor-text-position": "^5.0.0"
+    "webpack": "^5.99.9",
+    "webpack-cli": "^6.0.1",
+    "webpack-stream": "^7.0.0"
+  },
+  "scripts": {
+    "build": "webpack"
   }
 }

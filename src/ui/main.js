@@ -76,7 +76,7 @@ const annotationFactory = (contextEl, ignoreSelector) => ranges => {
  *
  */
 const main = (options = {}) => {
-    options.element = options.element || global.document.body;
+    options.element = options.element || window.document.body;
     options.editorExtensions = options.editorExtensions || [];
     options.viewerExtensions = options.viewerExtensions || [];
 

@@ -233,15 +233,15 @@ const gettext = (() => {
 // corner of the page (taking into account padding/margin/border on the body
 // element as necessary).
 function mousePosition(event) {
-    const body = global.document.body;
+    const body = window.document.body;
     let offset = { top: 0, left: 0 };
 
-    const bodyStyle = global.getComputedStyle(body);
+    const bodyStyle = window.getComputedStyle(body);
     if (bodyStyle.position !== "static") {
         const rect = body.getBoundingClientRect();
         offset = {
-            top: rect.top + global.scrollY,
-            left: rect.left + global.scrollX
+            top: rect.top + window.scrollY,
+            left: rect.left + window.scrollX
         };
     }
 
