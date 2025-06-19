@@ -1,9 +1,7 @@
 "use strict";
 
-var Widget = require('./widget').Widget,
-    util = require('../util');
-
-var _t = util.gettext;
+import { Widget } from './widget';
+import * as util from '../util';
 
 // preventEventDefault prevents an event's default, but handles the condition
 // that the event is null or doesn't have a preventDefault function.
@@ -13,14 +11,17 @@ const preventEventDefault = (event) => {
     }
 };
 
-// Public: Creates an element for viewing annotations.
-class Viewer extends Widget {
-    // Classes for toggling annotator state.
+/**
+ * Viewer class for displaying annotation items.
+ * Extends Widget and provides UI for viewing, editing, and deleting annotations.
+ */
+export class Viewer extends Widget {
+    // CSS classes for toggling annotator state
     static classes = {
         showControls: 'annotator--visible'
     };
 
-    // HTML templates for this.widget and this.item properties.
+    // HTML template for the main viewer widget
     static template = [
         '<div class="annotator annotator--viewer annotator--hide">',
         '<div class="viewer">',
@@ -31,6 +32,7 @@ class Viewer extends Widget {
         '</div>'
     ].join('\n');
 
+    // HTML template for a single annotation item
     static itemTemplate = [
         '<li class="viewer__annotation viewer__item">',
         '<span class="viewer__controls">',
@@ -44,39 +46,19 @@ class Viewer extends Widget {
         '</li>'
     ].join('\n');
 
-    // Configuration options
+    // Default configuration options
     static options = {
-        // Add the default field(s) to the viewer.
         defaultFields: true,
-
-        // Time, in milliseconds, before the viewer is hidden when a user mouses off
-        // the viewer.
         inactivityDelay: 500,
-
-        // Time, in milliseconds, before the viewer is updated when a user mouses
-        // over another annotation.
         activityDelay: 100,
-
-        // Hook, passed an annotation, which determines if the viewer's "edit"
-        // button is shown. If it is not a function, the button will not be shown.
-        permitEdit: function () { return false; },
-
-        // Hook, passed an annotation, which determines if the viewer's "delete"
-        // button is shown. If it is not a function, the button will not be shown.
-        permitDelete: function () { return false; },
-
-        // If set to a DOM Element, will set up the viewer to automatically display
-        // when the user hovers over Annotator highlights within that element.
+        permitEdit: () => false,
+        permitDelete: () => false,
         autoViewHighlights: null,
-
-        // Callback, called when the user clicks the edit button for an annotation.
-        onEdit: function () {},
-
-        // Callback, called when the user clicks the delete button for an
-        // annotation.
-        onDelete: function () {}
+        onEdit: () => {},
+        onDelete: () => {}
     };
 
+    // Instance properties
     itemTemplate = Viewer.itemTemplate;
     fields = [];
     annotations = [];
@@ -85,33 +67,25 @@ class Viewer extends Widget {
     hideTimerActivity = null;
     mouseDown = false;
 
-    // Public: Creates an instance of the Viewer object.
-    //
-    // options - An Object containing options.
-    //
-    // Examples
-    //
-    //   # Creates a new viewer, adds a custom field and displays an annotation.
-    //   viewer = new Viewer()
-    //   viewer.addField({
-    //     load: someLoadCallback
-    //   })
-    //   viewer.load(annotation)
-    //
-    // Returns a new Viewer instance.
+    /**
+     * Creates an instance of the Viewer object.
+     * @param {Object} options - Configuration options for the viewer.
+     */
     constructor(options) {
         super(options);
 
-        this.render = function (annotation) {
+        // Default render function for annotation text
+        this.render = (annotation) => {
             if (annotation.text) {
                 return util.escapeHtml(annotation.text);
             } else {
-                return "<i>" + _t('No comment') + "</i>";
+                return `<i>${util.gettext('No comment')}</i>`;
             }
         };
 
-        var self = this;
+        const self = this;
 
+        // Add default field if enabled
         if (this.options.defaultFields) {
             this.addField({
                 load: function (field, annotation) {
@@ -120,6 +94,7 @@ class Viewer extends Widget {
             });
         }
 
+        // Validate required callbacks
         if (typeof this.options.onEdit !== 'function') {
             throw new TypeError("onEdit callback must be a function");
         }
@@ -133,55 +108,58 @@ class Viewer extends Widget {
             throw new TypeError("permitDelete callback must be a function");
         }
 
+        // Setup highlight event listeners if enabled
         if (this.options.autoViewHighlights) {
             this.document = this.options.autoViewHighlights.ownerDocument;
 
-            this.options.autoViewHighlights.addEventListener("mouseover", function (event) {
+            this.options.autoViewHighlights.addEventListener("mouseover", (event) => {
                 if (event.target.classList.contains('annotator-hl')) {
                     self._onHighlightMouseover(event);
                 }
             });
 
-            this.options.autoViewHighlights.addEventListener("mouseleave", function (event) {
+            this.options.autoViewHighlights.addEventListener("mouseleave", (event) => {
                 if (event.target.classList.contains('annotator-hl')) {
                     self._startHideTimer();
                 }
             });
 
-            this.document.body.addEventListener("mousedown", function (e) {
-                if (e.which === 1) {
+            this.document.body.addEventListener("mousedown", (event) => {
+                if (event.which === 1) {
                     self.mouseDown = true;
                 }
             });
 
-            this.document.body.addEventListener("mouseup", function (e) {
-                if (e.which === 1) {
+            this.document.body.addEventListener("mouseup", (event) => {
+                if (event.which === 1) {
                     self.mouseDown = false;
                 }
             });
         }
 
-        // Replace jQuery event delegation with native event listeners
-        this.element.addEventListener("click", function (e) {
-            if (e.target.closest('.viewer__edit')) {
-                self._onEditClick.bind(this);
-            } else if (e.target.closest('.viewer__delete')) {
-                self._onDeleteClick.bind(this);
+        // Event listeners for viewer controls
+        this.element.addEventListener("click", (event) => {
+            if (event.target.closest('.viewer__edit')) {
+                self._onEditClick(event);
+            } else if (event.target.closest('.viewer__delete')) {
+                self._onDeleteClick(event);
             }
         });
 
-        this.element.addEventListener("mouseenter", function () {
+        this.element.addEventListener("mouseenter", () => {
             self._clearHideTimer();
         });
 
-        this.element.addEventListener("mouseleave", function () {
+        this.element.addEventListener("mouseleave", () => {
             self._startHideTimer();
         });
     }
 
+    /**
+     * Clean up event listeners and resources.
+     */
     destroy() {
         if (this.options.autoViewHighlights) {
-            // Remove event listeners from autoViewHighlights
             this.options.autoViewHighlights.removeEventListener("mouseover", this._onHighlightMouseover);
             this.options.autoViewHighlights.removeEventListener("mouseleave", this._startHideTimer);
 
@@ -191,7 +169,6 @@ class Viewer extends Widget {
             }
         }
 
-        // Remove event listeners from this.element
         this.element.removeEventListener("click", this._onElementClick);
         this.element.removeEventListener("mouseenter", this._onElementMouseEnter);
         this.element.removeEventListener("mouseleave", this._onElementMouseLeave);
@@ -199,18 +176,10 @@ class Viewer extends Widget {
         super.destroy(this);
     }
 
-    // Public: Show the viewer.
-    //
-    // position - An Object specifying the position in which to show the editor
-    //            (optional).
-    //
-    // Examples
-    //
-    //   viewer.show()
-    //   viewer.hide()
-    //   viewer.show({top: '100px', left: '80px'})
-    //
-    // Returns nothing.
+    /**
+     * Show the viewer at a specific position.
+     * @param {Object} position - {top, left} CSS position.
+     */
     show(position) {
         if (position) {
             this.element.style.top = position.top;
@@ -231,27 +200,23 @@ class Viewer extends Widget {
         super.show(this);
     }
 
-    // Public: Load annotations into the viewer and show it.
-    //
-    // annotation - An Array of annotations.
-    //
-    // Examples
-    //
-    //   viewer.load([annotation1, annotation2, annotation3])
-    //
-    // Returns nothing.
+    /**
+     * Load annotations into the viewer and show it.
+     * @param {Array} annotations - Array of annotation objects.
+     * @param {Object} position - Optional position to show the viewer.
+     */
     load(annotations = [], position) {
         this.annotations = annotations;
 
-        // Find the first <ul> element and clear its contents
+        // Clear the annotation list
         const list = this.element.querySelector('ul');
         if (list) {
             list.innerHTML = '';
         }
 
+        // Add each annotation item to the list
         for (const annotation of this.annotations) {
             const item = this._annotationItem(annotation);
-            
             if (list) {
                 list.appendChild(item);
             }
@@ -262,21 +227,22 @@ class Viewer extends Widget {
         this.show(position);
     }
 
-    // Public: Set the annotation renderer.
-    //
-    // renderer - A function that accepts an annotation and returns HTML.
-    //
-    // Returns nothing.
+    /**
+     * Set the annotation renderer function.
+     * @param {Function} renderer - Function that returns HTML for an annotation.
+     */
     setRenderer(renderer) {
         this.render = renderer;
     }
 
-    // Private: create the list item for a single annotation
+    /**
+     * Create the list item for a single annotation.
+     * @param {Object} annotation - Annotation data.
+     * @returns {HTMLElement} - List item element.
+     */
     _annotationItem(annotation) {
         // Create a new list item from the template
-        const temp = document.createElement('div');
-        temp.innerHTML = this.itemTemplate;
-        const item = temp.firstElementChild;
+        const item = util.createElementFromHTML(this.itemTemplate);
 
         // Find controls, edit, and delete elements
         const controls = item.querySelector('.viewer__controls');
@@ -285,6 +251,7 @@ class Viewer extends Widget {
 
         const controller = {};
 
+        // Show or remove edit button based on permissions
         if (this.options.permitEdit(annotation)) {
             controller.showEdit = () => {
                 if (edit) edit.removeAttribute('disabled');
@@ -296,6 +263,7 @@ class Viewer extends Widget {
             edit.parentNode && edit.parentNode.removeChild(edit);
         }
 
+        // Show or remove delete button based on permissions
         if (this.options.permitDelete(annotation)) {
             controller.showDelete = () => {
                 if (del) del.removeAttribute('disabled');
@@ -307,6 +275,7 @@ class Viewer extends Widget {
             del.parentNode && del.parentNode.removeChild(del);
         }
 
+        // Add custom fields to the annotation item
         for (let i = 0, len = this.fields.length; i < len; i++) {
             const field = this.fields[i];
             const fieldElement = field.element.cloneNode(true);
@@ -317,30 +286,11 @@ class Viewer extends Widget {
         return item;
     }
 
-    // Public: Adds an additional field to an annotation view. A callback can be
-    // provided to update the view on load.
-    //
-    // options - An options Object. Options are as follows:
-    //           load - Callback Function called when the view is loaded with an
-    //                  annotation. Recieves a newly created clone of an item
-    //                  and the annotation to be displayed (it will be called
-    //                  once for each annotation being loaded).
-    //
-    // Examples
-    //
-    //   # Display a user name.
-    //   viewer.addField({
-    //     # This is called when the viewer is loaded.
-    //     load: (field, annotation) ->
-    //       field = $(field)
-    //
-    //       if annotation.user
-    //         field.text(annotation.user) # Display the user
-    //       else
-    //         field.remove()              # Do not display the field.
-    //   })
-    //
-    // Returns itself.
+    /**
+     * Add an additional field to an annotation view.
+     * @param {Object} options - Field options, including a load callback.
+     * @returns {Viewer} - Returns itself for chaining.
+     */
     addField(options = {}) {
         const field = {
             load: () => {},
@@ -353,11 +303,10 @@ class Viewer extends Widget {
         return this;
     }
 
-    // Event callback: called when the edit button is clicked.
-    //
-    // event - An Event object.
-    //
-    // Returns nothing.
+    /**
+     * Event callback: called when the edit button is clicked.
+     * @param {Event} event - Click event.
+     */
     _onEditClick(event) {
         preventEventDefault(event);
 
@@ -369,16 +318,14 @@ class Viewer extends Widget {
         this.options.onEdit(item);
     }
 
-    // Event callback: called when the delete button is clicked.
-    //
-    // event - An Event object.
-    //
-    // Returns nothing.
-    _onDeleteClick (event) {
+    /**
+     * Event callback: called when the delete button is clicked.
+     * @param {Event} event - Click event.
+     */
+    _onDeleteClick(event) {
         preventEventDefault(event);
 
-        if (window.confirm(_t('Delete this annotation?'))) {
-            // Find the closest parent with class 'viewer__annotation'
+        if (window.confirm(util.gettext('Delete this annotation?'))) {
             const annotationElement = event.target.closest('.viewer__annotation');
             const item = annotationElement ? annotationElement.annotation : undefined;
 
@@ -388,15 +335,12 @@ class Viewer extends Widget {
         }
     }
 
-    // Event callback: called when a user triggers `mouseover` on a highlight
-    // element.
-    //
-    // event - An Event object.
-    //
-    // Returns nothing.
+    /**
+     * Event callback: called when a user triggers mouseover on a highlight element.
+     * @param {Event} event - Mouseover event.
+     */
     _onHighlightMouseover(event) {
-        // If the mouse button is currently depressed, we're probably trying to
-        // make a selection, so we shouldn't show the viewer.
+        // If the mouse button is currently depressed, don't show the viewer.
         if (this.mouseDown) {
             return;
         }
@@ -415,20 +359,16 @@ class Viewer extends Widget {
                 // Get the annotation data from each element
                 const annotations = elements.map(elem => elem.annotation);
 
-                // Now show the viewer with the wanted annotations
+                // Show the viewer with the wanted annotations
                 this.load(annotations, util.mousePosition(event));
-            })
+            });
     }
 
-    // Starts the hide timer. This returns a promise that is resolved when the
-    // viewer has been hidden. If the viewer is already hidden, the promise will
-    // be resolved instantly.
-    //
-    // activity - A boolean indicating whether the need to hide is due to a user
-    //            actively indicating a desire to view another annotation (as
-    //            opposed to merely mousing off the current one). Default: false
-    //
-    // Returns a Promise.
+    /**
+     * Starts the hide timer. Returns a promise that resolves when the viewer is hidden.
+     * @param {boolean} activity - True if hiding due to user activity.
+     * @returns {Promise}
+     */
     _startHideTimer(activity = false) {
         // If timer has already been set, use that one.
         if (this.hideTimer) {
@@ -458,7 +398,7 @@ class Viewer extends Widget {
             this.hideTimerPromise.resolve();
             this.hideTimerActivity = null;
         } else {
-            this.hideTimer = setTimeout(() => {            
+            this.hideTimer = setTimeout(() => {
                 this.hide();
                 this.hideTimerPromise.resolve();
                 this.hideTimer = null;
@@ -469,10 +409,9 @@ class Viewer extends Widget {
         return this.hideTimerPromise;
     }
 
-    // Clears the hide timer. Also rejects any promise returned by a previous
-    // call to _startHideTimer.
-    //
-    // Returns nothing.
+    /**
+     * Clears the hide timer and rejects any pending promise.
+     */
     _clearHideTimer() {
         if (this.hideTimer) {
             clearTimeout(this.hideTimer);
@@ -483,6 +422,4 @@ class Viewer extends Widget {
         }
         this.hideTimerActivity = null;
     }
-};
-
-exports.Viewer = Viewer;
+}

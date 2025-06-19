@@ -2,8 +2,6 @@
 
 import * as util from '../util.js';
 
-const createElementFromHTML = util.createElementFromHTML;
-
 /**
  * Base class for Editor and Viewer widgets.
  * Provides shared methods for widget lifecycle, visibility, and orientation.
@@ -39,7 +37,7 @@ export class Widget {
      */
     constructor(options = {}) {
         // Create the widget's root element from the template
-        this.element = createElementFromHTML(this.constructor.template.trim());
+        this.element = util.createElementFromHTML(this.constructor.template.trim());
 
         // Merge class and option defaults with subclass and instance options
         this.classes = { ...Widget.classes, ...this.constructor.classes };

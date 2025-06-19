@@ -1,12 +1,7 @@
 "use strict";
 
-var ref = require('../libs/anchors'),
-    TextPositionAnchor = ref.TextPositionAnchor,
-    TextQuoteAnchor = ref.TextQuoteAnchor;
-
-var util = require('../util');
-
-const deepMerge = util.deepMerge;
+import { TextPositionAnchor, TextQuoteAnchor } from '../libs/anchors.js';
+import * as util from '../util.js';
 
 /**
  * Checks if the given element is part of Annotator UI.
@@ -31,7 +26,7 @@ const isAnnotator = (element) => {
  * TextSelector monitors a document (or a specific element) for text selections
  * and can notify another object of a selection event.
  */
-class TextSelector {
+export class TextSelector {
     // Default configuration options
     static options = {
         /**
@@ -48,7 +43,8 @@ class TextSelector {
      */
     constructor(element, options) {
         this.element = element;
-        this.options = deepMerge({}, TextSelector.options, options);
+        // Merge user options with defaults
+        this.options = util.deepMerge({}, TextSelector.options, options);
         this.onSelection = this.options.onSelection;
 
         if (typeof this.element.ownerDocument !== 'undefined' &&
@@ -199,5 +195,3 @@ class TextSelector {
         }
     }
 }
-
-exports.TextSelector = TextSelector;

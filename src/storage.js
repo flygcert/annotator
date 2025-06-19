@@ -4,9 +4,6 @@
 
 import * as util from './util.js';
 
-const deepMerge = util.deepMerge;
-const _t = util.gettext;
-
 /**
  * Generates a unique identifier for each annotation within the session.
  * @returns {number} Unique ID
@@ -115,7 +112,7 @@ export class HttpStorage {
      * @param {object} options - Custom options
      */
     constructor(options) {
-        this.options = deepMerge({}, HttpStorage.options, options);
+        this.options = util.deepMerge({}, HttpStorage.options, options);
         this.onError = this.options.onError;
     }
 
@@ -268,22 +265,22 @@ export class HttpStorage {
         let message;
         switch (xhr.status) {
             case 400:
-                message = _t("The annotation store did not understand the request! (Error 400)");
+                message = util.gettext("The annotation store did not understand the request! (Error 400)");
                 break;
             case 401:
-                message = _t("You must be logged in to perform this operation! (Error 401)");
+                message = util.gettext("You must be logged in to perform this operation! (Error 401)");
                 break;
             case 403:
-                message = _t("You don't have permission to perform this operation! (Error 403)");
+                message = util.gettext("You don't have permission to perform this operation! (Error 403)");
                 break;
             case 404:
-                message = _t("Could not connect to the annotation store! (Error 404)");
+                message = util.gettext("Could not connect to the annotation store! (Error 404)");
                 break;
             case 500:
-                message = _t("Internal error in annotation store! (Error 500)");
+                message = util.gettext("Internal error in annotation store! (Error 500)");
                 break;
             default:
-                message = _t("Unknown error while speaking to annotation store!");
+                message = util.gettext("Unknown error while speaking to annotation store!");
         }
         this.onError(message, xhr);
     }
@@ -363,7 +360,7 @@ export class StorageAdapter {
     _cycle(obj, storeFunc, beforeEvent, afterEvent) {
         return this.runHook(beforeEvent, [obj])
             .then(() => {
-                const safeCopy = deepMerge({}, obj);
+                const safeCopy = util.deepMerge({}, obj);
                 delete safeCopy._local;
                 return Promise.resolve(this.store[storeFunc](safeCopy));
             })

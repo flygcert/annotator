@@ -1,6 +1,7 @@
-"use strict";
+// ES6 utility module for annotator
 
-var ESCAPE_MAP = {
+// Map of characters to their HTML-escaped equivalents
+const ESCAPE_MAP = {
     "&": "&amp;",
     "<": "&lt;",
     ">": "&gt;",
@@ -12,7 +13,7 @@ var ESCAPE_MAP = {
 /**
  * Node type constants for DOM nodes.
  */
-const NodeTypes = {
+export const NodeTypes = {
   ELEMENT_NODE: 1,
   ATTRIBUTE_NODE: 2,
   TEXT_NODE: 3,
@@ -30,7 +31,7 @@ const NodeTypes = {
 /**
  * Represents a browser range and provides normalization utilities.
  */
-class BrowserRange {
+export class BrowserRange {
   /**
    * @param {Object} obj - An object with range properties.
    */
@@ -210,7 +211,7 @@ class NormalizedRange {
  * @param {string} string - The string to escape.
  * @returns {string} - The escaped string.
  */
-function escapeHtml(string) {
+export function escapeHtml(string) {
     return String(string).replace(/[&<>"'\/]/g, c => ESCAPE_MAP[c]);
 }
 
@@ -220,7 +221,7 @@ function escapeHtml(string) {
  * @param {string} msgid - The message id to translate.
  * @returns {string} - The translated string or original if not available.
  */
-const gettext = (() => {
+export const gettext = (() => {
     if (typeof global.Gettext === 'function') {
         const _gettext = new global.Gettext({ domain: "annotator" });
         return msgid => _gettext.gettext(msgid);
@@ -228,11 +229,13 @@ const gettext = (() => {
     return msgid => msgid;
 })();
 
-
-// Returns the absolute position of the mouse relative to the top-left rendered
-// corner of the page (taking into account padding/margin/border on the body
-// element as necessary).
-function mousePosition(event) {
+/**
+ * Returns the absolute position of the mouse relative to the top-left rendered
+ * corner of the page (taking into account padding/margin/border on the body).
+ * @param {MouseEvent} event
+ * @returns {Object} - { top: string, left: string }
+ */
+export function mousePosition(event) {
     const body = window.document.body;
     let offset = { top: 0, left: 0 };
 
@@ -258,7 +261,7 @@ function mousePosition(event) {
  * @param  {...Object} sources - Source objects.
  * @returns {Object} - The merged object.
  */
-function deepMerge(target, ...sources) {
+export function deepMerge(target, ...sources) {
     if (!sources.length) return target;
     const source = sources.shift();
 
@@ -289,20 +292,19 @@ function deepMerge(target, ...sources) {
  * @param {string} htmlString - The HTML string.
  * @returns {Element} - The created DOM element.
  */
-function createElementFromHTML(htmlString) {
+export function createElementFromHTML(htmlString) {
     const div = document.createElement('div');
     div.innerHTML = htmlString.trim();
     // Change this to div.childNodes to support multiple top-level nodes.
     return div.firstChild;
 }
 
-
 /**
  * Recursively finds the first text node not before the given node.
  * @param {Node} n
  * @returns {Node|null}
  */
-const getFirstTextNodeNotBefore = (n) => {
+export const getFirstTextNodeNotBefore = (n) => {
   let result;
   switch (n.nodeType) {
     case NodeTypes.TEXT_NODE:
@@ -326,7 +328,7 @@ const getFirstTextNodeNotBefore = (n) => {
  * @param {Node} n
  * @returns {Node|null}
  */
-const getLastTextNodeUpTo = (n) => {
+export const getLastTextNodeUpTo = (n) => {
   let result;
   switch (n.nodeType) {
     case NodeTypes.TEXT_NODE:
@@ -350,7 +352,7 @@ const getLastTextNodeUpTo = (n) => {
  * @param {Node} node
  * @returns {Node[]|Node}
  */
-const getTextNodes = (node) => {
+export const getTextNodes = (node) => {
   if (node && node.nodeType !== NodeTypes.TEXT_NODE) {
     const nodes = [];
     if (node.nodeType !== NodeTypes.COMMENT_NODE) {
@@ -365,11 +367,5 @@ const getTextNodes = (node) => {
   return node;
 };
 
-
-exports.Promise = Promise;
-exports.gettext = gettext;
-exports.escapeHtml = escapeHtml;
-exports.mousePosition = mousePosition;
-exports.deepMerge = deepMerge;
-exports.createElementFromHTML = createElementFromHTML;
-exports.BrowserRange = BrowserRange;
+// Export Promise for compatibility
+export const Promise = window.Promise;

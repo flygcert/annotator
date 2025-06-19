@@ -3,8 +3,6 @@
 import { Widget } from './widget';
 import * as util from '../util.js';
 
-var _t = util.gettext;
-
 // Adder shows and hides an annotation adder button that can be clicked on to
 // create an annotation.
 export class Adder extends Widget {
@@ -14,7 +12,7 @@ export class Adder extends Widget {
         '<div class="adder__body">',
         '<button class="adder__button" type="button">',
         '<span class="fa-solid fa-quote-right adder__icon" aria-hidden="true"></span>',
-        '<span class="adder__label">' + _t('Annotate') + '</span>',
+        '<span class="adder__label">' + util.gettext('Annotate') + '</span>',
         '</button>',
         '</div>',
         '</div>',

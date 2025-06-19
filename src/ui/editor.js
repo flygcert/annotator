@@ -1,45 +1,36 @@
 "use strict";
 
-var Widget = require('./widget').Widget,
-    util = require('../util');
 
-var _t = util.gettext;
+import { Widget } from './widget';
+import * as util from '../util.js';
 
-// id returns an identifier unique within this session
+// id: Generates a unique identifier for each field instance
 const id = (() => {
     let counter = -1;
     return () => ++counter;
 })();
 
-
-// preventEventDefault prevents an event's default, but handles the condition
-// that the event is null or doesn't have a preventDefault function.
+/**
+ * Prevents the default action for an event, if possible.
+ * @param {Event} event - The event to prevent.
+ */
 const preventEventDefault = (event) => {
     if (event && typeof event.preventDefault === 'function') {
         event.preventDefault();
     }
 };
 
-// dragTracker is a function which allows a callback to track changes made to
-// the position of a draggable "handle" element.
-//
-// handle - A DOM element to make draggable
-// callback - Callback function
-//
-// Callback arguments:
-//
-// delta - An Object with two properties, "x" and "y", denoting the amount the
-//         mouse has moved since the last (tracked) call.
-//
-// Callback returns: Boolean indicating whether to track the last movement. If
-// the movement is not tracked, then the amount the mouse has moved will be
-// accumulated and passed to the next mousemove event.
-//
+/**
+ * Enables drag tracking for a handle element.
+ * @param {HTMLElement} handle - The element to make draggable.
+ * @param {Function} callback - Called with delta {x, y} on drag.
+ * @returns {Object} - Object with a destroy() method to remove listeners.
+ */
 const dragTracker = (handle, callback) => {
     let lastPos = null;
     let throttled = false;
 
-    // Event handler for mousemove
+    // Handles mouse movement during drag
     const mouseMove = (e) => {
         if (throttled || lastPos === null) return;
 
@@ -64,14 +55,14 @@ const dragTracker = (handle, callback) => {
         setTimeout(() => { throttled = false; }, 1000 / 60);
     };
 
-    // Event handler for mouseup
+    // Handles mouse up event to stop dragging
     const mouseUp = () => {
         lastPos = null;
         handle.ownerDocument.removeEventListener('mouseup', mouseUp);
         handle.ownerDocument.removeEventListener('mousemove', mouseMove);
     };
 
-    // Event handler for mousedown -- starts drag tracking
+    // Handles mouse down event to start dragging
     const mouseDown = (e) => {
         if (e.target !== handle) {
             return;
@@ -88,7 +79,7 @@ const dragTracker = (handle, callback) => {
         e.preventDefault();
     };
 
-    // Public: turn off drag tracking for this dragTracker object.
+    // Public destroy method to remove mousedown listener
     const destroy = () => {
         handle.ownerDocument.removeEventListener('mousedown', mouseDown);
     };
@@ -98,26 +89,15 @@ const dragTracker = (handle, callback) => {
     return { destroy };
 };
 
-// resizer is a component that uses a dragTracker under the hood to track the
-// dragging of a handle element, using that motion to resize another element.
-//
-// element - DOM Element to resize
-// handle - DOM Element to use as a resize handle
-// options - Object of options.
-//
-// Available options:
-//
-// invertedX - If this option is defined as a function, and that function
-//             returns a truthy value, the horizontal sense of the drag will be
-//             inverted. Useful if the drag handle is at the left of the
-//             element, and so dragging left means "grow the element"
-// invertedY - If this option is defined as a function, and that function
-//             returns a truthy value, the vertical sense of the drag will be
-//             inverted. Useful if the drag handle is at the bottom of the
-//             element, and so dragging down means "grow the element"
+/**
+ * Makes an element resizable using a handle.
+ * @param {HTMLElement} element - The element to resize.
+ * @param {HTMLElement} handle - The handle to drag for resizing.
+ * @param {Object} options - Options for inversion of axes.
+ * @returns {Object} - dragTracker object.
+ */
 const resizer = (element, handle, options = {}) => {
-    // Translate the delta supplied by dragTracker into a delta that takes
-    // account of the invertedX and invertedY callbacks if defined.
+    // Adjusts delta based on inversion options
     const translate = (delta) => {
         let directionX = 1,
             directionY = -1;
@@ -135,7 +115,7 @@ const resizer = (element, handle, options = {}) => {
         };
     };
 
-    // Callback for dragTracker
+    // Callback for resizing
     const resize = (delta) => {
         const style = window.getComputedStyle(element);
         const height = parseInt(style.height, 10);
@@ -157,19 +137,17 @@ const resizer = (element, handle, options = {}) => {
         return (parseInt(element.style.height, 10) !== height || parseInt(element.style.width, 10) !== width);
     };
 
-    // We return the dragTracker object in order to expose its methods.
     return dragTracker(handle, resize);
 };
 
-// mover is a component that uses a dragTracker under the hood to track the
-// dragging of a handle element, using that motion to move another element.
-//
-// element - DOM Element to move
-// handle - DOM Element to use as a move handle
-//
+/**
+ * Makes an element movable using a handle.
+ * @param {HTMLElement} element - The element to move.
+ * @param {HTMLElement} handle - The handle to drag for moving.
+ * @returns {Object} - dragTracker object.
+ */
 const mover = (element, handle) => {
     const move = (delta) => {
-        // Get current top and left, default to 0 if not set
         let top = parseInt(element.style.top, 10) || 0;
         let left = parseInt(element.style.left, 10) || 0;
 
@@ -177,83 +155,74 @@ const mover = (element, handle) => {
         element.style.left = (left + delta.x) + "px";
     };
 
-    // We return the dragTracker object in order to expose its methods.
     return dragTracker(handle, move);
 };
 
-// Public: Creates an element for editing annotations.
-class Editor extends Widget {
-    // Classes to toggle state.
+/**
+ * Editor class for editing annotations.
+ * Extends Widget.
+ */
+export class Editor extends Widget {
+    // CSS classes for toggling state
     static classes = {
         hide: 'annotator--hide',
     };
 
-    // HTML template for this.element.
+    // HTML template for the editor
     static template = [
         '<div class="annotator annotator--editor annotator--hide">',
         '<div class="editor">',
         '<form class="editor__body">',
         '<ul class="editor__listing"></ul>',
         '<div class="editor__controls">',
-        '<a href="#cancel" class="btn btn-outline-warning editor__cancel">' + _t('Cancel') + '</a>',
-        '<a href="#save" class="btn btn-warning editor__save">' + _t('Save') + '</a>',
+        `<a href="#cancel" class="btn btn-outline-warning editor__cancel">${util.gettext('Cancel')}</a>`,
+        `<a href="#save" class="btn btn-warning editor__save">${util.gettext('Save')}</a>`,
         '</div>',
         '</form>',
         '</div>',
         '</div>'
     ].join('\n');
 
-    // Configuration options
+    // Default configuration options
     static options = {
-        // Add the default field(s) to the editor.
         defaultFields: true
     };
 
-    // Public: Creates an instance of the Editor object.
-    //
-    // options - An Object literal containing options.
-    //
-    // Examples
-    //
-    //   # Creates a new editor, adds a custom field and
-    //   # loads an annotation for editing.
-    //   editor = new Annotator.Editor
-    //   editor.addField({
-    //     label: 'My custom input field',
-    //     type:  'textarea'
-    //     load:  someLoadCallback
-    //     save:  someSaveCallback
-    //   })
-    //   editor.load(annotation)
-    //
-    // Returns a new Editor instance.
+    /**
+     * Creates an Editor instance.
+     * @param {Object} options - Configuration options.
+     */
     constructor(options) {
         super(options);
 
         this.fields = [];
         this.annotation = {};
 
+        // Add default textarea field if enabled
         if (this.options.defaultFields) {
             this.addField({
                 type: 'textarea',
-                label: _t('Comments') + '\u2026',
-                load: function (field, annotation) {
+                label: util.gettext('Comments') + '\u2026',
+                load: (field, annotation) => {
                     field.querySelector('textarea').value = annotation.text || '';
                 },
-                submit: function (field, annotation) {
+                submit: (field, annotation) => {
                     annotation.text = field.querySelector('textarea').value;
                 }
             });
         }
 
+        // Bind event listeners
         this.element.querySelector('form').addEventListener('submit', this._onFormSubmit.bind(this));
         this.element.querySelector('.editor__save').addEventListener('click', this._onSaveClick.bind(this));
         this.element.querySelector('.editor__cancel').addEventListener('click', this._onCancelClick.bind(this));
         this.element.querySelector('textarea').addEventListener('keydown', this._onTextareaKeydown.bind(this));
     }
 
+    /**
+     * Cleans up event listeners and destroys the editor.
+     */
     destroy() {
-        // Remove all event listeners added in the constructor
         const form = this.element.querySelector('form');
         if (form) {
             form.removeEventListener('submit', this._onFormSubmit);
@@ -277,18 +246,10 @@ class Editor extends Widget {
         super.destroy(this);
     }
 
-    // Public: Show the editor.
-    //
-    // position - An Object specifying the position in which to show the editor
-    //            (optional).
-    //
-    // Examples
-    //
-    //   editor.show()
-    //   editor.hide()
-    //   editor.show({top: '100px', left: '80px'})
-    //
-    // Returns nothing.
+    /**
+     * Shows the editor at a given position.
+     * @param {Object} [position] - {top, left} CSS values.
+     */
     show(position) {
         if (typeof position !== 'undefined' && position !== null) {
             this.element.style.top = position.top;
@@ -297,7 +258,7 @@ class Editor extends Widget {
 
         super.show(this);
 
-        // give main textarea focus
+        // Focus the first textarea
         const firstInput = this.element.querySelector('textarea');
         if (firstInput) {
             firstInput.focus();
@@ -306,14 +267,12 @@ class Editor extends Widget {
         this._setupDraggables();
     }
 
-    // Public: Load an annotation into the editor and display it.
-    //
-    // annotation - An annotation Object to display for editing.
-    // position - An Object specifying the position in which to show the editor
-    //            (optional).
-    //
-    // Returns a Promise that is resolved when the editor is submitted, or
-    // rejected if editing is cancelled.
+    /**
+     * Loads an annotation into the editor and displays it.
+     * @param {Object} annotation - The annotation to edit.
+     * @param {Object} [position] - Optional position for the editor.
+     * @returns {Promise} - Resolves on submit, rejects on cancel.
+     */
     load(annotation, position) {
         this.annotation = annotation;
 
@@ -322,15 +281,19 @@ class Editor extends Widget {
             field.load(field.element, this.annotation);
         }
         
-        return new Promise((resolve, reject) => {
+        // Add a default catch to avoid unhandled promise rejection
+        const promise = new Promise((resolve, reject) => {
             this.dfd = { resolve, reject };
             this.show(position);
         });
+        promise.catch(() => {}); // Prevent unhandled rejection warning
+        
+        return promise;
     }
 
-    // Public: Submits the editor and saves any changes made to the annotation.
-    //
-    // Returns nothing.
+    /**
+     * Submits the editor, saving changes to the annotation.
+     */
     submit() {
         for (let i = 0, len = this.fields.length; i < len; i++) {
             let field = this.fields[i];
@@ -344,73 +307,23 @@ class Editor extends Widget {
         this.hide();
     }
 
-    // Public: Cancels the editing process, discarding any edits made to the
-    // annotation.
-    //
-    // Returns itself.
+    /**
+     * Cancels editing, discarding changes.
+     * @returns {Editor} - Returns itself.
+     */
     cancel() {
         if (typeof this.dfd !== 'undefined' && this.dfd !== null) {
             this.dfd.reject('editing cancelled');
         }
         this.hide();
+        return this;
     }
 
-    // Public: Adds an additional form field to the editor. Callbacks can be
-    // provided to update the view and anotations on load and submission.
-    //
-    // options - An options Object. Options are as follows:
-    //           id     - A unique id for the form element will also be set as
-    //                    the "for" attribute of a label if there is one.
-    //                    (default: "annotator-field-{number}")
-    //           type   - Input type String. One of "input", "textarea",
-    //                    "checkbox", "select" (default: "input")
-    //           label  - Label to display either in a label Element or as
-    //                    placeholder text depending on the type. (default: "")
-    //           load   - Callback Function called when the editor is loaded
-    //                    with a new annotation. Receives the field <li> element
-    //                    and the annotation to be loaded.
-    //           submit - Callback Function called when the editor is submitted.
-    //                    Receives the field <li> element and the annotation to
-    //                    be updated.
-    //
-    // Examples
-    //
-    //   # Add a new input element.
-    //   editor.addField({
-    //     label: "Tags",
-    //
-    //     # This is called when the editor is loaded use it to update your
-    //     # input.
-    //     load: (field, annotation) ->
-    //       # Do something with the annotation.
-    //       value = getTagString(annotation.tags)
-    //       $(field).find('input').val(value)
-    //
-    //     # This is called when the editor is submitted use it to retrieve data
-    //     # from your input and save it to the annotation.
-    //     submit: (field, annotation) ->
-    //       value = $(field).find('input').val()
-    //       annotation.tags = getTagsFromString(value)
-    //   })
-    //
-    //   # Add a new checkbox element.
-    //   editor.addField({
-    //     type: 'checkbox',
-    //     id: 'annotator-field-my-checkbox',
-    //     label: 'Allow anyone to see this annotation',
-    //     load: (field, annotation) ->
-    //       # Check what state of input should be.
-    //       if checked
-    //         $(field).find('input').attr('checked', 'checked')
-    //       else
-    //         $(field).find('input').removeAttr('checked')
-
-    //     submit: (field, annotation) ->
-    //       checked = $(field).find('input').is(':checked')
-    //       # Do something.
-    //   })
-    //
-    // Returns the created <li> Element.
+    /**
+     * Adds a form field to the editor.
+     * @param {Object} options - Field options.
+     * @returns {HTMLElement} - The created <li> element.
+     */
     addField(options) {
         let field = Object.assign({
             id: 'editor__field-' + id(),
@@ -464,13 +377,17 @@ class Editor extends Widget {
         return field.element;
     }
 
+    /**
+     * Checks and updates the orientation of the editor.
+     * @returns {Editor} - Returns itself.
+     */
     checkOrientation() {
         Widget.prototype.checkOrientation.call(this);
 
         const list = this.element.querySelector('ul'),
             controls = this.element.querySelector('.editor__controls');
 
-        if (this.element.classList.contains(this.classes.invert.y)) {
+        if (this.element.classList.contains(this.classes.invert?.y)) {
             this.element.insertBefore(controls, list);
         } else if (this.element.firstElementChild === controls) {
             this.element.insertBefore(list, controls.nextSibling);
@@ -479,51 +396,50 @@ class Editor extends Widget {
         return this;
     }
 
-    // Event callback: called when a user clicks the editor form (by pressing
-    // return, for example).
-    //
-    // Returns nothing
+    /**
+     * Handles form submission event.
+     * @param {Event} event - The submit event.
+     */
     _onFormSubmit(event) {
         preventEventDefault(event);
         this.submit();
     }
 
-    // Event callback: called when a user clicks the editor's save button.
-    //
-    // Returns nothing
+    /**
+     * Handles save button click event.
+     * @param {Event} event - The click event.
+     */
     _onSaveClick(event) {
         preventEventDefault(event);
         this.submit();
     }
 
-    // Event callback: called when a user clicks the editor's cancel button.
-    //
-    // Returns nothing
+    /**
+     * Handles cancel button click event.
+     * @param {Event} event - The click event.
+     */
     _onCancelClick(event) {
         preventEventDefault(event);
         this.cancel();
     }
 
-    // Event callback: listens for the following special keypresses.
-    // - escape: Hides the editor
-    // - enter:  Submits the editor
-    //
-    // event - A keydown Event object.
-    //
-    // Returns nothing
+    /**
+     * Handles textarea keydown events for special keys.
+     * @param {KeyboardEvent} event - The keydown event.
+     */
     _onTextareaKeydown(event) {
         if (event.which === 27) {
-            // "Escape" key => abort.
+            // Escape key
             this.cancel();
         } else if (event.which === 13 && !event.shiftKey) {
-            // If "return" was pressed without the shift key, we're done.
+            // Enter key without shift
             this.submit();
         }
     }
 
-    // Sets up mouse events for resizing and dragging the editor window.
-    //
-    // Returns nothing.
+    /**
+     * Sets up mouse events for resizing and dragging the editor window.
+     */
     _setupDraggables() {
         if (typeof this._resizer !== 'undefined' && this._resizer !== null) {
             this._resizer.destroy();
@@ -538,7 +454,7 @@ class Editor extends Widget {
         let cornerItem;
         const items = this.element.querySelectorAll('.editor__item');
 
-        if (this.element.classList.contains(this.classes.invert.y)) {
+        if (this.element.classList.contains(this.classes.invert?.y)) {
             cornerItem = items[items.length - 1];
         } else {
             cornerItem = items[0];
@@ -556,12 +472,10 @@ class Editor extends Widget {
             self = this;
 
         this._resizer = resizer(textarea, resizeHandle, {
-            invertedX: () => self.element.classList.contains(self.classes.invert.x),
-            invertedY: () => self.element.classList.contains(self.classes.invert.y)
+            invertedX: () => self.element.classList.contains(self.classes.invert?.x),
+            invertedY: () => self.element.classList.contains(self.classes.invert?.y)
         });
 
         this._mover = mover(this.element, controls);
     }
 }
-
-exports.Editor = Editor;

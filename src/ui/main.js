@@ -1,18 +1,19 @@
-/*package annotator.ui */
+/* package annotator.ui */
 "use strict";
 
-var util = require('../util');
+import { Adder } from './adder.js';
+import { Editor } from './editor.js';
+import { Highlighter } from './highlighter.js';
+import { TextSelector } from './textselector.js';
+import { Viewer } from './viewer.js';
+import * as util from '../util.js';
 
-var adder = require('./adder');
-var editor = require('./editor');
-var highlighter = require('./highlighter');
-var textselector = require('./textselector');
-var viewer = require('./viewer');
-
-
-// trim strips whitespace from either end of a string.
-//
-// This usually exists in native code, but not in IE8.
+/**
+ * Trims whitespace from both ends of a string.
+ * Uses native String.prototype.trim if available, otherwise falls back to regex.
+ * @param {string} s - The string to trim.
+ * @returns {string} - The trimmed string.
+ */
 const trim = s => {
     if (typeof String.prototype.trim === 'function') {
         return String.prototype.trim.call(s);
@@ -21,14 +22,17 @@ const trim = s => {
     }
 };
 
-
-// annotationFactory returns a function that can be used to construct an
-// annotation from a list of selected ranges.
+/**
+ * Returns a function that constructs an annotation from a list of selected ranges.
+ * @param {HTMLElement} contextEl - The context element.
+ * @param {string} ignoreSelector - Selector for elements to ignore.
+ * @returns {Function} - Function that takes ranges and returns an annotation object.
+ */
 const annotationFactory = (contextEl, ignoreSelector) => ranges => {
     const text = [];
 
     for (let i = 0, len = ranges[0].length; i < len; i++) {
-        const r = ranges[0][i];    
+        const r = ranges[0][i];
         text.push(trim(r.toString()));
     }
 
@@ -43,70 +47,52 @@ const annotationFactory = (contextEl, ignoreSelector) => ranges => {
     };
 };
 
-
 /**
- * function:: main([options])
- *
- * A module that provides a default user interface for Annotator that allows
- * users to create annotations by selecting text within (a part of) the
- * document.
- *
- * Example::
- *
- *     app.include(annotator.ui.main);
- *
- * :param Object options:
- *
- *   .. attribute:: options.element
- *
- *      A DOM element to which event listeners are bound. Defaults to
- *      ``document.body``, allowing annotation of the whole document.
- *
- *   .. attribute:: options.editorExtensions
- *
- *      An array of editor extensions. See the
- *      :class:`~annotator.ui.editor.Editor` documentation for details of editor
- *      extensions.
- *
- *   .. attribute:: options.viewerExtensions
- *
- *      An array of viewer extensions. See the
- *      :class:`~annotator.ui.viewer.Viewer` documentation for details of viewer
- *      extensions.
- *
+ * Main UI module for Annotator.
+ * Provides a default user interface for creating annotations by selecting text.
+ * @param {Object} options - Configuration options.
+ * @returns {Object} - API with start, destroy, and annotation event handlers.
  */
-const main = (options = {}) => {
+export const main = (options = {}) => {
     options.element = options.element || window.document.body;
     options.editorExtensions = options.editorExtensions || [];
     options.viewerExtensions = options.viewerExtensions || [];
 
-    // Local helpers
+    // Helper to create annotation objects from selection ranges
     const makeAnnotation = annotationFactory(options.element, '.annotator-hl');
 
-    // Object to hold local state
+    // Local state object
     const s = {
         interactionPoint: null
     };
 
+    /**
+     * Initializes and attaches all UI components.
+     * @param {Object} app - The annotator app instance.
+     */
     const start = app => {
         const ident = app.registry.getUtility('identityPolicy');
         const authz = app.registry.getUtility('authorizationPolicy');
 
-        s.adder = new adder.Adder({
+        // Adder: UI for creating new annotations
+        s.adder = new Adder({
             onCreate: ann => {
                 app.annotations.create(ann);
             }
         });
         s.adder.attach();
 
-        s.editor = new editor.Editor({
+        // Editor: UI for editing annotations
+        s.editor = new Editor({
             extensions: options.editorExtensions
         });
         s.editor.attach();
 
-        s.highlighter = new highlighter.Highlighter(options.element);
+        // Highlighter: Handles annotation highlights in the document
+        s.highlighter = new Highlighter(options.element);
 
-        s.textselector = new textselector.TextSelector(options.element, {
+        // TextSelector: Handles text selection and triggers adder
+        s.textselector = new TextSelector(options.element, {
             onSelection: (ranges, event) => {
                 if (ranges.length > 0) {
                     const annotation = makeAnnotation(ranges);
@@ -118,9 +104,10 @@ const main = (options = {}) => {
             }
         });
 
-        s.viewer = new viewer.Viewer({
+        // Viewer: UI for viewing, editing, and deleting annotations
+        s.viewer = new Viewer({
             onEdit: ann => {
-                // Copy the interaction point from the shown viewer:
+                // Copy the interaction point from the shown viewer
                 const el = s.viewer.element;
                 const style = window.getComputedStyle(el);
                 s.interactionPoint = {
@@ -131,7 +118,7 @@ const main = (options = {}) => {
                 app.annotations.update(ann);
             },
             onDelete: ann => {
-                app.annotations['delete'](ann);
+                app.annotations.delete(ann);
             },
             permitEdit: ann => authz.permits('update', ann, ident.who()),
             permitDelete: ann => authz.permits('delete', ann, ident.who()),
@@ -144,6 +131,9 @@ const main = (options = {}) => {
     return {
         start,
 
+        /**
+         * Destroys all UI components and cleans up event listeners.
+         */
         destroy: () => {
             s.adder.destroy();
             s.editor.destroy();
@@ -152,24 +142,48 @@ const main = (options = {}) => {
             s.viewer.destroy();
         },
 
+        /**
+         * Draws all loaded annotations.
+         * @param {Array} anns - Array of annotation objects.
+         */
         annotationsLoaded: anns => { s.highlighter.drawAll(anns); },
+
+        /**
+         * Draws a newly created annotation.
+         * @param {Object} ann - The annotation object.
+         */
         annotationCreated: ann => { s.highlighter.draw(ann); },
+
+        /**
+         * Removes a deleted annotation highlight.
+         * @param {Object} ann - The annotation object.
+         */
         annotationDeleted: ann => { s.highlighter.undraw(ann); },
+
+        /**
+         * Redraws an updated annotation.
+         * @param {Object} ann - The annotation object.
+         */
         annotationUpdated: ann => { s.highlighter.redraw(ann); },
 
+        /**
+         * Called before an annotation is created.
+         * Returns a promise that resolves when editing is complete.
+         * @param {Object} annotation - The annotation object.
+         * @returns {Promise}
+         */
         beforeAnnotationCreated: annotation => {
-            // Editor#load returns a promise that is resolved if editing
-            // completes, and rejected if editing is cancelled. We return it
-            // here to "stall" the annotation process until the editing is
-            // done.
             return s.editor.load(annotation, s.interactionPoint);
         },
 
+        /**
+         * Called before an annotation is updated.
+         * Returns a promise that resolves when editing is complete.
+         * @param {Object} annotation - The annotation object.
+         * @returns {Promise}
+         */
         beforeAnnotationUpdated: annotation => {
             return s.editor.load(annotation, s.interactionPoint);
         }
     };
 };
-
-
-exports.main = main;

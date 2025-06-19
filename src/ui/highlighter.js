@@ -3,10 +3,6 @@
 import { TextPositionAnchor, TextQuoteAnchor } from '../libs/anchors.js';
 import * as util from '../util.js';
 
-const deepMerge = util.deepMerge;
-const BrowserRange = util.BrowserRange;
-
-
 // highlightRange wraps the DOM Nodes within the provided range with a highlight
 // element of the specified class and returns the highlight Elements.
 //
@@ -44,7 +40,7 @@ const highlightRange = (normedRange, cssClass = 'annotator-hl') => {
 // for those ranges which are not reanchorable in the current document.
 const reanchorRange = (range, rootElement) => {
     try {
-        return new BrowserRange(range).normalize(rootElement);
+        return new util.BrowserRange(range).normalize(rootElement);
     } catch (e) {
         throw e;
     }
@@ -134,7 +130,7 @@ export class Highlighter {
 
     constructor(element, options) {
         this.element = element;
-        this.options = deepMerge({}, Highlighter.options, options);
+        this.options = util.deepMerge({}, Highlighter.options, options);
     }
 
     destroy() {
