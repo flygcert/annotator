@@ -82,15 +82,15 @@ const selectorsToRange = async (annotation, rootElement) => {
         }
     }
 
-    const maybeAssertQuote = r => {
-        if (quote?.exact != null && r.toString() !== quote.exact) {
+    const maybeAssertQuote = range => {
+        if (quote?.exact != null && range.toString() !== quote.exact) {
             throw new Error('quote mismatch');
         }
-        return r;
+        return range;
     };
 
     // Try each selector type in order of specificity
-    if (position) {
+    if (position) {    
         try {
             const r = await querySelector(TextPositionAnchor, rootElement, position);
             return maybeAssertQuote(r);
@@ -106,7 +106,7 @@ const selectorsToRange = async (annotation, rootElement) => {
         }
     }
 
-    throw new Error('unable to anchor');
+    return null;
 };
 
 // Highlighter provides a simple way to draw highlighted <span> tags over
@@ -185,45 +185,49 @@ export class Highlighter {
 
         const range = await selectorsToRange(annotation, this.element);
 
-        if (!annotation._local) {
-            annotation._local = {};
-        }
-
-        if (!annotation._local.ranges) {
-            annotation._local.ranges = [];
-        }
-        annotation._local.ranges = [range];
-
-        for (let i = 0, ilen = annotation._local.ranges.length; i < ilen; i++) {
-            const r = reanchorRange(annotation._local.ranges[i], this.element);
-            if (r !== null) {
-                normedRanges.push(r);
+        if (range) {
+            if (!annotation._local) {
+                annotation._local = {};
             }
-        }
 
-        if (!annotation._local.highlights) {
-            annotation._local.highlights = [];
-        }
+            if (!annotation._local.ranges) {
+                annotation._local.ranges = [];
+            }
+            annotation._local.ranges = [range];
 
-        for (let normed of normedRanges) {
-            annotation._local.highlights.push(
-                ...highlightRange(normed, this.options.highlightClass)
-            );
-        }
+            for (let i = 0, ilen = annotation._local.ranges.length; i < ilen; i++) {
+                const r = reanchorRange(annotation._local.ranges[i], this.element);
+                if (r !== null) {
+                    normedRanges.push(r);
+                }
+            }
 
-        // Save the annotation data on each highlighter element.
-        for (const hl of annotation._local.highlights) {
-            hl.annotation = annotation;
-        }
+            if (!annotation._local.highlights) {
+                annotation._local.highlights = [];
+            }
 
-        // Add a data attribute for annotation id if the annotation has one
-        if (typeof annotation.id !== 'undefined' && annotation.id !== null) {
+            for (let normed of normedRanges) {
+                annotation._local.highlights.push(
+                    ...highlightRange(normed, this.options.highlightClass)
+                );
+            }
+
+            // Save the annotation data on each highlighter element.
             for (const hl of annotation._local.highlights) {
-                hl.setAttribute('data-annotation-id', annotation.id);
+                hl.annotation = annotation;
             }
+
+            // Add a data attribute for annotation id if the annotation has one
+            if (typeof annotation.id !== 'undefined' && annotation.id !== null) {
+                for (const hl of annotation._local.highlights) {
+                    hl.setAttribute('data-annotation-id', annotation.id);
+                }
+            }
+
+            return annotation._local.highlights;
         }
 
-        return annotation._local.highlights;
+        return null;
     }
 
     // Public: Remove the drawn highlights for the given annotation.
