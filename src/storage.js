@@ -248,7 +248,7 @@ export class HttpStorage {
     _methodFor(action) {
         const table = {
             create: 'POST',
-            update: 'PUT',
+            update: 'PATCH',
             destroy: 'DELETE',
             search: 'GET'
         };
